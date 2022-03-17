@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 #
 #  This script takes input from a .csv file and creates new devices.
 #  Any line in the .csv that begins with # is ignored
@@ -33,31 +33,31 @@ bad = 0
 #  }
 
 def get_creds():
-    homeDir = expanduser("~")
-    credsFile = ".kauth"
-    credsFile = homeDir + "/" + credsFile
-    perms = oct(stat.S_IMODE(os.lstat(credsFile).st_mode))
-    if not perms == "0600":
-            print "Your credentials file is not set to 600, please fix"
-            sys.exit()
-    if os.path.isfile(credsFile):
-        with open(credsFile) as f:
-            content = f.read()
-            creds = json.loads(content)
-            return(creds)
-    else:
-        pass
+	#homeDir = expanduser("~")
+	credsFile = ".kauth"
+	#credsFile = homeDir + "/" + credsFile
+	#perms = oct(stat.S_IMODE(os.lstat(credsFile).st_mode))
+	# if not perms == "0600":
+			# print ("Your credentials file is not set to 600, please fix")
+			# sys.exit()
+	if os.path.isfile(credsFile):
+		with open(credsFile) as f:
+			content = f.read()
+			creds = json.loads(content)
+			return(creds)
+	else:
+		pass
 
 while get_creds() == False:
-    break
+	break
 
 #
 #  Open up the .csv file and ignore any lines that begin with #
 def skip_comments(filename):
-    with open(filename, 'r') as f:
-        for line in f:
-            if not line.strip().startswith('#'):
-               yield line
+	with open(filename, 'r') as f:
+		for line in f:
+			if not line.strip().startswith('#'):
+			   yield line
 
 
 # Get the user credentials and get the http header put together for when we submit the API query
@@ -94,26 +94,20 @@ payload = {'Content-Type': 'application/json', 'X-CH-Auth-API-Token': api, 'X-CH
 
 for line in skip_comments(filename):
 	newline = line.rstrip()
-    siteid,devicename,devicedescription,sendingips,v6add,asn,devicesnmpcommunity,devicesamplerate,planid = newline.split(",")
-	iplist = [ sendingips ]
-    #site = siteid.upper()  # Optional, if you use the sitedict and customer uses uppercase site names
+	devicename,devicedescription,sendingip,devicesnmpcommunity,devicesamplerate,planid = newline.split(",")
+	#site = siteid.upper()  # Optional, if you use the sitedict and customer uses uppercase site names
 	kentikjson = {}
 	kentikjson['device_name']=devicename
 	kentikjson['device_type']='router'
 	kentikjson['device_description']=devicedescription
 	kentikjson['plan_id']=int(planid)
-	kentikjson['site_id']=int)siteid) # or sitesdict[siteid]
+	#kentikjson['site_id']=int(siteid) # or sitesdict[siteid]
 	kentikjson['device_sample_rate']=int(devicesamplerate)
-	kentikjson['sending_ips']=iplist
-	kentikjson['device_snmp_ip']=devicesnmpip
+	kentikjson['sending_ips']=[sendingip]
+	kentikjson['device_snmp_ip']=sendingip
 	kentikjson['device_snmp_community']=devicesnmpcommunity
-    kentikjson['device_bgp_neighbor_ip']=sendingips
-    kentikjson['device_bgp_neighbor_ip6']=v6v6add
-    kentikjson['device_bgp_neighbor_asn']=asn
-    kentikjson['device_bgp_password']=''
-	kentikjson['device_bgp_type']='device'
 	kentikjson['minimize_snmp']=False
-
+	kentikjson['device_bgp_type']="none"
 
 #
 #  Once Kentikjson is populated, we need to put that list of json variables into a new json object called "device"
@@ -122,9 +116,10 @@ for line in skip_comments(filename):
 	device = {}
 	device['device']=kentikjson
 	kpush = json.dumps(device)
-	#print kpush
+	#print (json.dumps(device, indent=2))
 	rkentik = requests.post('https://api.kentik.com/api/v5/device', headers=payload, data=kpush)
 
+	#print (json.dumps(rkentik.text, indent=2))
 
 # The rest is basically looking at the output of each request post and looking for error messages.
 # I've tried to figure out some basic issues with trial and Error. If a device isn't successfully
@@ -132,26 +127,26 @@ for line in skip_comments(filename):
 # let you know how many sucess/fails you had.
 #
 	if rkentik.status_code == 201:
-		print 'device "%s" added successfully' % (devicename)
+		print ('device "%s" added successfully' % (devicename))
 		good += 1
 
 	elif rkentik.status_code == 400:
 		if 'Already Exists' in rkentik.text:
-			print 'Device %s aleady exists in the Kentik device list' % (devicename)
-                else:
-                    print 'Error code 400, your JSON is likely formatted incorrectly or you have a wrong data type for a json variable'
-                    bad += 1
-                    break
+			print ('Device %s aleady exists in the Kentik device list' % (devicename))
+		else:
+			print ('Error code 400, your JSON is likely formatted incorrectly or you have a wrong data type for a json variable')
+			bad += 1
+			break
 
 	elif rkentik.status_code == 401:
-		print 'Error code 401, you are not authorized. Check your API Key or Kentik email address'
-                bad += 1
-                break
+		print ('Error code 401, you are not authorized. Check your API Key or Kentik email address')
+		bad += 1
+		break
 
 	else:
-		print 'device "%s" not added: Error Code %s' % (devicename, rkentik.status_code)
+		print ('device "devicename" not added: Error Code '+str(rkentik.status_code))
 		bad += 1
 
 	time.sleep(1)
 
-print "%s Devices sucessfully added \n%s devices failed to add" % (good, bad)
+print (str(good)+" devices sucessfully added \n"+str(bad)+" devices failed to add")
